@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flood Modeling System</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+</head>
+
+
+<style>
+body { margin:0; font-family:sans-serif; display:flex; flex-direction:column; height:100vh; }
+nav { display:flex; background:#2c3e50; }
+.nav-link { color:white; padding:12px; cursor:pointer; }
+.nav-link.active { background:#e74c3c; }
+.page { display:none; flex:1; padding:10px; }
+.page.active { display:block; }
+#map { height:80vh; }
+
+body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .disclaimer { background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-size: 0.85em; color: #856404; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .stat-card { background: #e3f2fd; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #bbdefb; }
+        .stat-value { font-size: 1.5em; font-weight: bold; color: #1976D2; }
+        .input-group { margin-bottom: 15px; display: grid; grid-template-columns: 1fr 2fr; align-items: center; }
+        button { border: none; padding: 12px; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-run { background-color: #2196F3; flex: 2; }
+        .btn-export { background-color: #4CAF50; flex: 1; }
+        #graph-area { margin-top: 20px; }
+        #status-msg { margin: 10px 0; font-style: italic; color: #666; height: 20px; }
+
+.container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; }
+.disclaimer { background:#fff3cd; padding:10px; margin-bottom:10px; }
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.stat-card { background:#e3f2fd; padding:10px; text-align:center; }
+.stat-value { font-size:1.5em; font-weight:bold; }
+.input-group { display:grid; grid-template-columns:1fr 2fr; margin-bottom:10px; }
+.btn-run { background:#2196F3; color:white; }
+.btn-export { background:#4CAF50; color:white; }
+
+<style>
+    /* ปรับ container ให้กว้างขึ้นเพื่อรองรับแผนที่ใหญ่ */
+    .container { 
+        max-width: 95%; /* ขยายจาก 1100px เป็น 95% ของหน้าจอ */
+        margin: 20px auto; 
+        background: white; 
+        padding: 20px; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+    }
+
+    /* ขยายขนาด Map */
+    #map { 
+        height: 100px; /* เพิ่มความสูงจาก 550px เป็น 750px */
+        width: 100%; 
+        border-radius: 8px; 
+        border: 2px solid #003366; 
+        margin-top: 15px; 
+    }
+    
+    /* ปรับ Legend ให้ตัวใหญ่ขึ้นอ่านง่าย */
+    .legend {
+        background: white; padding: 15px; line-height: 24px; color: #333;
+        border: 2px solid rgba(0,0,0,0.2); border-radius: 5px; font-size: 14px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+
+#map_building {
+    height: 1500px; /* หรือความสูงตามต้องการ */
+    width: 100%;
+    border-radius: 8px;
+    z-index: 1; /* ป้องกันการซ้อนทับกับ UI อื่น */
+}
+
+    /* เลย์เอาต์หลักของหน้า 4 */
+    .p4-layout {
+        display: flex;
+        height: calc(90vh - 60px); /* เต็มความสูงจอ ลบความสูง Nav */
+        width: 100%;
+        gap: 0;
+        margin: 0;
+        overflow: hidden;
+    }
+
+    /* ฝั่งซ้าย 1/3 สำหรับกราฟ */
+    .p4-sidebar {
+        width: 33.33%; 
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #f4f7f6;
+        border-right: 1px solid #ddd;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+
+    /* ฝั่งขวา 2/3 สำหรับแผนที่ */
+    .p4-main {
+        width: 66.66%;
+        height: 100%;
+        position: relative;
+    }
+
+    /* กล่องกราฟแต่ละอัน สูงอย่างละ 1.5/3 (หรือ 50%) */
+    .chart-card {
+        flex: 1; 
+        background: white;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        min-height: 0; /* สำคัญสำหรับ flex item */
+    }
+
+    .input-panel {
+        background: #fff;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.85em;
+    }
+
+</style>
+
+</style>
+
+<script>
+window.appState = {
+    q_sim: null,
+    df_res: null,
+    max_elev: null,
+    flood: null,
+    building: null
+};
+
+function showPage(id){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+</script>
+</head>
+
+<body>
+
+<nav>
+<div class="nav-link" onclick="showPage('p1')">1. Rainfall-Runoff</div>
+<div class="nav-link" onclick="showPage('p2')">2. Reservoir</div>
+<div class="nav-link" onclick="showPage('p3')">3. Flood Map</div>
+<div class="nav-link" onclick="showPage('p4')">4. Damage</div>
+</nav>
+
+<!-- ================= PAGE 1 ================= -->
+<div id="p1" class="page active">
+
+<div class="container">
+    <h2>Hydrological Tank Model Analysis</h2>
+
+    <div class="input-group">
+        <label>Basin Area (km²):</label>
+        <input type="number" id="area" value="1.0" step="0.1">
+    </div>
+
+    <div class="input-group">
+        <label>Rainfall Data (.txt):</label>
+        <input type="file" id="rain-file" accept=".txt">
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <button class="btn-run" py-click="run_model">Run Simulation</button>
+        <button class="btn-export" py-click="export_to_csv">Export CSV</button>
+    </div>
+
+    <div id="status-msg"></div>
+
+    <div class="stats-grid" id="stats-area" style="display: none;">
+        <div class="stat-card">
+            <div>Peak Runoff (cms)</div>
+            <div id="peak-flow" class="stat-value">-</div>
+        </div>
+        <div class="stat-card">
+            <div>Total Volume (MCM)</div>
+            <div id="total-vol" class="stat-value">-</div>
+        </div>
+    </div>
+
+    <div id="graph-area"></div>
+</div>
+
+</div>
+
+<!-- ================= PAGE 2 ================= -->
+<div id="p2" class="page">
+
+<div class="container">
+    <h2>Reservoir Routing (Spillway)</h2>
+
+    <div class="input-group">
+        <label>Initial Water Level (m):</label>
+        <input type="number" id="h0" value="390">
+    </div>
+
+    <div class="input-group">
+        <label>Elev-Area CSV:</label>
+        <input type="file" id="area-file" accept=".csv">
+    </div>
+
+    <button class="btn-run" py-click="run_reservoir">Run Routing</button>
+
+    <div id="status2"></div>
+
+    <div id="graph2"></div>
+
+</div>
+
+</div>
+
+<!-- ================= PAGE 3 ================= -->
+<div id="p3" class="page">
+
+<div class="container">
+    <h2>Flood Inundation Map</h2>
+
+    <div class="input-group">
+        <label>Upload DEM (.asc):</label>
+        <input type="file" id="dem-file" accept=".asc">
+    </div>
+
+    <button class="btn-run" py-click="run_flood">Generate Flood Map</button>
+
+    <div id="status3"></div>
+
+    <div id="map" style="height:800px;"></div>
+</div>
+
+</div>
+
+<!-- ================= PAGE 4 ================= -->
+<div id="p4" class="page">
+    <div class="p4-layout">
+        <aside class="p4-sidebar">
+            <div class="chart-card">
+                <canvas id="chart_count"></canvas>
+            </div>
+            <div class="chart-card">
+                <canvas id="chart_cost"></canvas>
+            </div>
+            
+            <div class="input-panel">
+                <div style="margin-bottom: 8px;">
+                    <b>อาคาร:</b> <input type="file" id="building-file" accept=".geojson" style="width:150px;">
+                    <input type="number" id="cost-per-m2" value="1500" style="width:60px;"> บ./ตร.ม.
+                </div>
+                <button py-click="run_building_analysis" style="background:#e74c3c; width:100%; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">
+                    🎯 วิเคราะห์ความเสียหาย
+                </button>
+                <div id="damage-summary" style="margin-top:10px; display:none; border-top:1px solid #eee; pt:5px;">
+                    เสียหาย: <span id="summary-count" style="color:red; font-weight:bold;">-</span> หลัง | 
+                    รวม: <span id="summary-cost" style="font-weight:bold;">-</span> ล้านบาท
+                </div>
+            </div>
+        </aside>
+
+        <main class="p4-main">
+            <div id="map_building"></div>
+        </main>
+    </div>
+</div>
+
+<py-config>
+packages = ["numpy", "pandas", "matplotlib"]
+[[fetch]]
+files = ["hydro_calc.py"]
+</py-config>
+
+<script>
+    // ลงทะเบียน Plugin สำหรับแสดงตัวเลข
+    Chart.register(ChartDataLabels);
+
+    let chartCount, chartCost;
+
+    function updateChartsJS(labels, counts, costs) {
+        const colors = ["#00ff00", "#ffff00", "#ffa500", "#ff0000", "#8b0000"];
+        
+        // แปลงหน่วยเป็นล้านบาท
+        const costsInMillion = costs.map(v => v / 1000000);
+
+        // 1. กราฟจำนวนอาคาร (Bar Chart)
+        const ctxCount = document.getElementById('chart_count').getContext('2d');
+        if (chartCount) chartCount.destroy();
+        chartCount = new Chart(ctxCount, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{ label: 'จำนวน (หลัง)', data: counts, backgroundColor: colors }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'จำนวนอาคาร (หลัง)' },
+                    datalabels: { // แสดงตัวเลขบนกราฟ
+                        anchor: 'end',
+                        align: 'top',
+                        font: { weight: 'bold' },
+                        formatter: Math.round
+                    }
+                },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // 2. กราฟมูลค่าความเสียหาย (Pie Chart - หน่วยล้านบาท)
+        const ctxCost = document.getElementById('chart_cost').getContext('2d');
+        if (chartCost) chartCost.destroy();
+        chartCost = new Chart(ctxCost, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{ data: costsInMillion, backgroundColor: colors }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: 'ค่าเสียหาย (ล้านบาท)' },
+                    legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                    datalabels: { // แสดงตัวเลขในวงกลม
+                        color: '#000',
+                        font: { weight: 'bold' },
+                        formatter: (value) => value.toFixed(2) + "M"
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+<py-script>
+import numpy as np
+import matplotlib.pyplot as plt
+from pyscript import document, window, display
+import base64, io
+from hydro_calc import params_dat, run_tank_simulation
+from pyodide.ffi import to_js
+
+from pyodide.http import open_url
+L = window.L
+import json
+
+# ================= PAGE 1 =================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from pyscript import document, window, display
+from hydro_calc import params_dat, run_tank_simulation
+
+last_q_sim = None
+
+async def run_model(event):
+    global last_q_sim
+    
+    status = document.getElementById("status-msg")
+    status.innerText = "Processing..."
+
+    try:
+        area = float(document.getElementById("area").value)
+        file_input = document.getElementById("rain-file")
+
+        if len(file_input.files) == 0:
+            window.alert("Please upload rainfall file")
+            return
+
+        text = await file_input.files.item(0).text()
+        rain = np.array([float(x) for x in text.split()])
+
+        # ===== RUN MODEL =====
+        last_q_sim = run_tank_simulation(params_dat(), rain, area)
+
+        # 👉 สำคัญ: ส่งไป page2
+        window.appState.q_sim = last_q_sim.tolist()
+
+        # ===== STATS =====
+        peak = np.max(last_q_sim)
+        vol = np.sum(last_q_sim) * 3600 / 1e6
+
+        document.getElementById("stats-area").style.display = "grid"
+        document.getElementById("peak-flow").innerText = f"{peak:.3f}"
+        document.getElementById("total-vol").innerText = f"{vol:.3f}"
+
+        # ===== PLOT =====
+        fig, (ax1, ax2) = plt.subplots(2,1,figsize=(8,6))
+
+        ax1.bar(range(len(rain)), rain)
+        ax1.invert_yaxis()
+        ax1.set_ylabel("Rainfall")
+
+        ax2.plot(last_q_sim)
+        ax2.set_ylabel("Runoff")
+
+        display(fig, target="graph-area")
+
+        status.innerText = "Done!"
+
+    except Exception as e:
+        window.alert(str(e))
+        status.innerText = "Error"
+
+
+def export_to_csv(event):
+    global last_q_sim
+
+    if last_q_sim is None:
+        window.alert("Run model first")
+        return
+
+    csv = "Time,Runoff\n"
+    csv += "\n".join([f"{i},{v}" for i,v in enumerate(last_q_sim)])
+
+    blob = window.Blob.new([csv], {"type": "text/csv"})
+    url = window.URL.createObjectURL(blob)
+
+    link = document.createElement("a")
+    link.href = url
+    link.download = "runoff.csv"
+    link.click()
+    
+
+# ================= PAGE 2 =================
+async def run_reservoir(event):
+
+    status = document.getElementById("status2")
+    status.innerText = "Processing..."
+
+    try:
+        # ===== GET inflow from Page1 =====
+        q_sim = window.appState.q_sim
+
+        if q_sim is None:
+            window.alert("Please run Page 1 first!")
+            return
+
+        inflow = np.array(q_sim)
+
+        # ===== READ Elev-Area CSV =====
+        file_input = document.getElementById("area-file")
+
+        if len(file_input.files) == 0:
+            window.alert("Upload Elev-Area CSV")
+            return
+
+        # 🔥 FIX: use await instead of asyncio.run
+        text = await file_input.files.item(0).text()
+        df_area = pd.read_csv(io.StringIO(text))
+
+        # ===== PARAMETER =====
+        C = 1.7
+        L = 35.0
+        spillway_elev = 392.5
+        dt = 3600
+
+        h_current = float(document.getElementById("h0").value)
+
+        # ===== FUNCTIONS =====
+        def get_outflow(h):
+            if h <= spillway_elev:
+                return 0.0
+            return C * L * (h - spillway_elev)**1.5
+
+        def get_area(h):
+            return np.interp(h, df_area['Elev'], df_area['A'])
+
+        # ===== EXTEND INFLOW =====
+        inflow = np.concatenate([inflow, np.zeros(100)])
+
+        results = []
+
+        # ===== ROUTING =====
+        for j in range(len(inflow)):
+            I = inflow[j]
+            Q = get_outflow(h_current)
+            A = get_area(h_current)
+
+            results.append({
+                "Hour": j,
+                "Inflow": I,
+                "Outflow": Q,
+                "Elevation": h_current,
+                "Area": A
+            })
+
+            dh = (I - Q) * dt / A
+            h_current += dh
+
+        df_res = pd.DataFrame(results)
+        
+        max_h = float(np.max(df_res['Elevation']))
+        window.localStorage.setItem("max_water_level", str(max_h))
+
+        # 👉 SAVE to global state
+        window.appState.df_res = df_res.to_dict(orient="records")
+        window.appState.max_elev = float(df_res["Elevation"].max())
+
+        # ===== PLOT =====
+        fig, (ax1, ax2) = plt.subplots(2,1,figsize=(8,6))
+
+        ax1.plot(df_res['Hour'], df_res['Inflow'], 'b-', label='Inflow')
+        ax1.plot(df_res['Hour'], df_res['Outflow'], 'r-', label='Outflow')
+        ax1.set_ylabel('Discharge (cms)')
+        ax1.legend()
+
+        ax2.plot(df_res['Hour'], df_res['Elevation'], 'g-', label='Water Level')
+        ax2.axhline(y=spillway_elev, color='orange', linestyle='--')
+        ax2.set_ylabel('Elevation (m. MSL)')
+        ax2.legend()
+
+        display(fig, target="graph2")
+
+        status.innerText = f"Done! Max Elev = {window.appState.max_elev:.2f} m"
+
+    except Exception as e:
+        window.alert(str(e))
+        status.innerText = "Error"
+
+# ================= PAGE 3 =================
+def show_page(event):
+    target = event.target.id.replace("btn-", "")
+    for p in document.querySelectorAll(".page"): p.classList.remove("active-page")
+    for b in document.querySelectorAll(".nav-item"): b.classList.remove("active")
+    document.getElementById(target).classList.add("active-page")
+    event.target.classList.add("active")
+
+async def run_flood(event):
+    try:
+        # 1. รับค่า Water Level (สมมติว่ามาจากหน้า 2 หรือระบุเอง)
+        val = window.localStorage.getItem("max_water_level")
+        max_water_level = float(val)
+        
+        # 2. อ่านไฟล์ DEM
+        file_input = document.getElementById("dem-file")
+        if len(file_input.files) == 0:
+            window.alert("Please upload DEM file first!")
+            return
+
+        text = await file_input.files.item(0).text()
+        lines = text.splitlines()
+
+        # 3. Header Parameters (Fixed based on your data)
+        ncols, nrows = 591, 825
+        xll, yll = 99.80929, 19.1140303425
+        cellsize = 0.0001807511
+
+        # 4. แปลงข้อมูลเป็น Numpy
+        data = []
+        for line in lines[6:]:
+            data.extend([float(x) for x in line.split()])
+        
+        dem = np.array(data).reshape((nrows, ncols))
+        dem[dem == -9999] = np.nan
+
+        # 5. คำนวณ Flood Depth
+        flood_depth = max_water_level - dem
+        flood_depth[flood_depth <= 0] = np.nan # แสดงเฉพาะพื้นที่น้ำท่วม
+
+        if np.all(np.isnan(flood_depth)):
+            window.alert("No flooding at this water level.")
+            return
+
+        # 6. สร้าง PNG Overlay (QGIS Style)
+        fig, ax = plt.subplots(figsize=(ncols/100, nrows/100))
+        # ใช้ cmap 'Blues' เลียนแบบ QGIS
+        ax.imshow(flood_depth, cmap='Blues', vmin=0, vmax=3.0) 
+        ax.axis('off')
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+
+        img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        img_url = f"data:image/png;base64,{img_base64}"
+
+        # 7. คำนวณพิกัด (แปลงเป็น Float ปกติ ป้องกัน Error 'lat')
+        lat_min = float(yll)
+        lat_max = float(yll + (nrows * cellsize))
+        lon_min = float(xll)
+        lon_max = float(xll + (ncols * cellsize))
+        
+        # 8. จัดการ Map ผ่าน Leaflet (window.L)
+        L = window.L
+        if hasattr(window, "leaflet_map") and window.leaflet_map:
+            window.leaflet_map.remove()
+
+        # แปลง List เป็น JS Array ด้วย to_js
+        #center = to_js([ (lat_min + lat_max)/2, (lon_min + lon_max)/2 ])
+        center = to_js([ 19.19838, 99.83731 ])
+        m = L.map("map").setView(center, 13)
+        window.leaflet_map = m
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(m)
+
+        # 9. ใส่ Flood Layer
+        bounds = to_js([[lat_min, lon_min], [lat_max, lon_max]])
+        L.imageOverlay(img_url, bounds, to_js({"opacity": 0.75})).addTo(m)
+
+        # 10. สร้าง Legend แบบ HTML (วิธีที่เสถียรที่สุด)
+        #add_legend(m, L)
+
+    except Exception as e:
+        window.alert(f"Simulation Error: {str(e)}")
+
+def add_legend(map_obj, L_obj):
+    # สร้าง Legend Control โดยใช้ JavaScript Bridge
+    legend = L_obj.control(to_js({"position": "bottomright"}))
+    
+    # กำหนดฟังก์ชันสร้าง Element
+    def onAdd(m):
+        div = document.createElement("div")
+        div.className = "legend"
+        div.innerHTML = """
+            <h4>Flood Depth</h4>
+            <i style="background: #deebf7"></i> 0 - 0.5 m<br>
+            <i style="background: #9ecae1"></i> 0.5 - 1.5 m<br>
+            <i style="background: #3182bd"></i> 1.5 - 3.0 m<br>
+            <i style="background: #08519c"></i> > 3.0 m
+        """
+        return div
+
+    # ใช้ pyodide proxy สำหรับฟังก์ชัน callback
+    from pyodide.ffi import create_proxy
+    legend.onAdd = create_proxy(onAdd)
+    legend.addTo(map_obj)
+
+# ================= PAGE 4 =================
+
+import json
+import numpy as np
+from pyscript import document, window, display
+from pyodide.ffi import create_proxy, to_js
+
+async def run_building_analysis(event):
+    print("Button Clicked!") # เช็คใน Console (F12) ว่าข้อความนี้ขึ้นไหม
+    try:
+        # 1. ดึงค่าจาก LocalStorage
+        val = window.localStorage.getItem("max_water_level")
+        if not val:
+            window.alert("ไม่พบระดับน้ำสูงสุด กรุณารันหน้า 2 ก่อน")
+            return
+        
+        max_elev = float(val)
+        cost_m2 = float(document.getElementById("cost-per-m2").value)
+
+        # 2. อ่านไฟล์
+        file_input = document.getElementById("building-file")
+        if not file_input.files or len(file_input.files) == 0:
+            window.alert("กรุณาเลือกไฟล์ GeoJSON")
+            return
+
+        json_text = await file_input.files.item(0).text()
+        geojson_data = json.loads(json_text)
+
+        # 3. เกณฑ์ความรุนแรง (Damage Ratio ตามที่คุณกำหนด)
+        criteria = [
+            {"name":"รุนแรงน้อยมาก","color":"#00ff00","max_d":0.3,"ratio":0.03},
+            {"name":"รุนแรงน้อย","color":"#ffff00","max_d":1.0,"ratio":0.3},
+            {"name":"รุนแรงปานกลาง","color":"#ffa500","max_d":1.5,"ratio":0.6},
+            {"name":"รุนแรง","color":"#ff0000","max_d":3.0,"ratio":0.8},
+            {"name":"รุนแรงมาก","color":"#8b0000","max_d":999,"ratio":1.0}
+        ]
+
+        processed_features = []
+        building_counts = [0]*5
+        damage_costs = [0.0]*5
+
+        for f in geojson_data['features']:
+            p = f['properties']
+            # เช็คชื่อคอลัมน์ให้ชัวร์ (Topomean และ Area)
+            topo = float(p.get('Topomean') or 0)
+            area = float(p.get('Area') or p.get('area') or 0)
+            
+            depth = max_elev - topo
+
+            if depth > 0:
+                for i, c in enumerate(criteria):
+                    if depth <= c["max_d"]:
+                        cost = area * cost_m2 * c["ratio"]
+                        p["map_color"] = c["color"]
+                        p["flood_depth_m"] = round(depth, 2)
+                        p["damage_baht"] = f"{cost:,.0f}"
+                        
+                        building_counts[i] += 1
+                        damage_costs[i] += cost
+                        processed_features.append(f)
+                        break
+
+        if not processed_features:
+            window.alert("ไม่มีอาคารที่ถูกน้ำท่วมในระดับน้ำนี้")
+            return
+
+        # 4. จัดการแผนที่
+        if hasattr(window, "building_leaflet_map") and window.building_leaflet_map:
+            window.building_leaflet_map.remove()
+
+        m = window.L.map("map_building").setView(to_js([19.16382, 99.88903]), 14)
+        window.building_leaflet_map = m
+        window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(m)
+
+        # แปลงข้อมูลเป็น JS Object ที่สะอาด (ลด Error Invalid GeoJSON)
+        js_geojson = window.JSON.parse(json.dumps({"type":"FeatureCollection", "features":processed_features}))
+
+        def style_fn(feat):
+            color = feat.properties.map_color or "#999"
+            return to_js({"fillColor": color, "color": "white", "weight": 1, "fillOpacity": 0.7})
+
+        def pop_fn(feat, layer):
+            p = feat.properties
+            layer.bindPopup(f"ลึก {p.flood_depth_m} ม.<br>{p.damage_baht} บาท")
+
+        window.L.geoJSON(js_geojson, to_js({
+            "style": create_proxy(style_fn),
+            "onEachFeature": create_proxy(pop_fn)
+        })).addTo(m)
+
+        # 5. อัปเดต UI และ Chart
+        document.getElementById("summary-count").innerText = str(len(processed_features))
+        # เรียก Chart.js (ถ้ามีฟังก์ชันใน JS)
+        if hasattr(window, "updateChartsJS"):
+            window.updateChartsJS(to_js([c["name"] for c in criteria]), to_js(building_counts), to_js(damage_costs))
+        
+        # (ท้ายฟังก์ชัน run_building_analysis ใน Python)
+        total_damage_m = sum(damage_costs) / 1_000_000
+        document.getElementById("summary-count").innerText = str(len(processed_features))
+        document.getElementById("summary-cost").innerText = f"{total_damage_m:.2f}"
+        document.getElementById("damage-summary").style.display = "block"
+
+        # เรียกกราฟ
+        if hasattr(window, "updateChartsJS"):
+            window.updateChartsJS(to_js([c["name"] for c in criteria]), to_js(building_counts), to_js(damage_costs))
+        
+        # บังคับให้แผนที่วาดใหม่ตามขนาด Container ใหม่
+        window.building_leaflet_map.invalidateSize()
+        
+
+    except Exception as e:
+        print(f"Error: {e}")
+        window.alert(f"เกิดข้อผิดพลาด: {str(e)}")
+
+</py-script>
+
+</body>
+</html>
