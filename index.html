@@ -171,8 +171,11 @@ function showPage(id){
     </div>
 
     <div class="input-group">
-        <label>Rainfall Data (.txt):</label>
-        <input type="file" id="rain-file" accept=".txt">
+        <!-- <label>Rainfall Data (.txt):</label> -->
+        <!-- <input type="file" id="rain-file" accept=".txt"> -->
+        <!-- <small style="display:block; color:#666;">ไฟล์ที่ต้องการ: <b>Rainfall.txt</b></small> -->
+        <label>Rainfall Data:</label>
+        <span style="color: #2c3e50;">📂 <b>Rainfall.txt</b> (Auto-detect)</span>
     </div>
 
     <div style="display: flex; gap: 10px;">
@@ -210,8 +213,8 @@ function showPage(id){
     </div>
 
     <div class="input-group">
-        <label>Elev-Area CSV:</label>
-        <input type="file" id="area-file" accept=".csv">
+        <label>Elev-Area Data:</label>
+        <span style="color: #2c3e50;">📂 <b>Elev_Area.csv</b> (Auto-detect)</span>
     </div>
 
     <button class="btn-run" py-click="run_reservoir">Run Routing</button>
@@ -232,7 +235,7 @@ function showPage(id){
 
     <div class="input-group">
         <label>Upload DEM (.asc):</label>
-        <input type="file" id="dem-file" accept=".asc">
+        <span style="color: #2c3e50;">📂 <b>Topo_PY.asc</b> (Auto-detect)</span>
     </div>
 
     <button class="btn-run" py-click="run_flood">Generate Flood Map</button>
@@ -257,7 +260,8 @@ function showPage(id){
             
             <div class="input-panel">
                 <div style="margin-bottom: 8px;">
-                    <b>อาคาร:</b> <input type="file" id="building-file" accept=".geojson" style="width:150px;">
+                    <b>อาคาร:</b> 
+                    <span style="color: #2c3e50;">📂 <b>building_PY.geojson</b> (Auto-detect)</span>
                     <input type="number" id="cost-per-m2" value="1500" style="width:60px;"> บ./ตร.ม.
                 </div>
                 <button py-click="run_building_analysis" style="background:#e74c3c; width:100%; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">
@@ -378,11 +382,14 @@ async def run_model(event):
         area = float(document.getElementById("area").value)
         file_input = document.getElementById("rain-file")
 
-        if len(file_input.files) == 0:
-            window.alert("Please upload rainfall file")
-            return
+        #if len(file_input.files) == 0:
+            #window.alert("Please upload rainfall file")
+            #return
 
-        text = await file_input.files.item(0).text()
+        #text = await file_input.files.item(0).text()
+        #rain = np.array([float(x) for x in text.split()])
+        response = open_url("./Rainfall.txt")
+        text = response.read()
         rain = np.array([float(x) for x in text.split()])
 
         # ===== RUN MODEL =====
@@ -454,15 +461,17 @@ async def run_reservoir(event):
         inflow = np.array(q_sim)
 
         # ===== READ Elev-Area CSV =====
-        file_input = document.getElementById("area-file")
+        #file_input = document.getElementById("area-file")
 
-        if len(file_input.files) == 0:
-            window.alert("Upload Elev-Area CSV")
-            return
+        #if len(file_input.files) == 0:
+            #window.alert("Upload Elev-Area CSV")
+            #return
 
         # 🔥 FIX: use await instead of asyncio.run
-        text = await file_input.files.item(0).text()
-        df_area = pd.read_csv(io.StringIO(text))
+        #text = await file_input.files.item(0).text()
+        #df_area = pd.read_csv(io.StringIO(text))
+        response = open_url("./Elev_Area.csv")
+        df_area = pd.read_csv(io.StringIO(response.read()))
 
         # ===== PARAMETER =====
         C = 1.7
@@ -548,12 +557,14 @@ async def run_flood(event):
         max_water_level = float(val)
         
         # 2. อ่านไฟล์ DEM
-        file_input = document.getElementById("dem-file")
-        if len(file_input.files) == 0:
-            window.alert("Please upload DEM file first!")
-            return
+        #file_input = document.getElementById("dem-file")
+        #if len(file_input.files) == 0:
+            #window.alert("Please upload DEM file first!")
+            #return
 
-        text = await file_input.files.item(0).text()
+        #text = await file_input.files.item(0).text()
+        response = open_url("./Topo_PY.asc")
+        text = response.read()
         lines = text.splitlines()
 
         # 3. Header Parameters (Fixed based on your data)
@@ -661,13 +672,15 @@ async def run_building_analysis(event):
         cost_m2 = float(document.getElementById("cost-per-m2").value)
 
         # 2. อ่านไฟล์
-        file_input = document.getElementById("building-file")
-        if not file_input.files or len(file_input.files) == 0:
-            window.alert("กรุณาเลือกไฟล์ GeoJSON")
-            return
+        #file_input = document.getElementById("building-file")
+        #if not file_input.files or len(file_input.files) == 0:
+            #window.alert("กรุณาเลือกไฟล์ GeoJSON")
+            #return
 
-        json_text = await file_input.files.item(0).text()
-        geojson_data = json.loads(json_text)
+        #json_text = await file_input.files.item(0).text()
+        #geojson_data = json.loads(json_text)
+        response = open_url("./building_PY.geojson")
+        geojson_data = json.loads(response.read())
 
         # 3. เกณฑ์ความรุนแรง (Damage Ratio ตามที่คุณกำหนด)
         criteria = [
